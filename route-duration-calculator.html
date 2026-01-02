@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Duration Calculator</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏱️</text></svg>">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-green: #7AA456;
+            --color-bg: #f8fafc;
+            --color-surface: #ffffff;
+            --color-surface-elevated: #f1f5f9;
+            --color-primary: #7AA456;
+            --color-primary-hover: #6a9349;
+            --color-text: #2c3e50;
+            --color-text-muted: #64748b;
+            --color-border: #e2e8f0;
+            --color-success: #5fb35f;
+            --color-error: #e74c3c;
+            --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font-body);
+            background: linear-gradient(135deg, #f8fafc 0%, #e8f4f8 100%);
+            color: var(--color-text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 3rem 2rem; }
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: var(--primary-green);
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+        }
+        .header h1 {
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 0.5rem;
+        }
+        .header p { color: rgba(255, 255, 255, 0.95); font-size: 1.1rem; }
+        .card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-md);
+        }
+        .card-title {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--color-text);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .card-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: var(--primary-green);
+            border-radius: 2px;
+        }
+        .upload-zone {
+            border: 2px dashed var(--color-border);
+            border-radius: 12px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--color-surface-elevated);
+        }
+        .upload-zone:hover {
+            border-color: var(--primary-green);
+            background: rgba(122, 164, 86, 0.05);
+            transform: translateY(-2px);
+        }
+        .upload-zone.dragover {
+            border-color: var(--primary-green);
+            background: rgba(122, 164, 86, 0.1);
+        }
+        .upload-icon { font-size: 3rem; margin-bottom: 1rem; }
+        .upload-text { font-size: 1.1rem; margin-bottom: 0.5rem; font-weight: 500; }
+        .upload-subtext { color: var(--color-text-muted); font-size: 0.9rem; }
+        #fileInput { display: none; }
+        .btn {
+            font-family: var(--font-body);
+            font-weight: 600;
+            padding: 0.875rem 2rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn-primary {
+            background: var(--primary-green);
+            color: white;
+            box-shadow: 0 4px 12px rgba(122, 164, 86, 0.3);
+        }
+        .btn-primary:hover {
+            background: var(--color-primary-hover);
+            box-shadow: 0 6px 20px rgba(122, 164, 86, 0.4);
+            transform: translateY(-2px);
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+        .stat-card { border-top: 3px solid var(--primary-green); }
+        .stat-value {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-green);
+            margin-bottom: 0.25rem;
+        }
+        .stat-label {
+            color: var(--color-text-muted);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--color-border);
+            background: var(--color-surface);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.96rem; }
+        thead {
+            background: var(--primary-green);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        th {
+            padding: 0.3rem 1.6rem;
+            text-align: left;
+            font-weight: 600;
+            color: white;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            white-space: nowrap;
+        }
+        td { padding: 0.3rem 1.6rem; border-bottom: 1px solid var(--color-border); }
+        /* Reduce spacing after Route Name column */
+        th:nth-child(2), td:nth-child(2) { padding-right: 0.2rem; }
+        /* Reduce spacing after Visit column */
+        th:nth-child(3), td:nth-child(3) { padding-right: 0.2rem; }
+        tbody tr:hover { background: rgba(122, 164, 86, 0.05); }
+        .total-duration { font-weight: 600; color: var(--primary-green); }
+        .route-name { font-weight: 500; }
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .alert-success {
+            background: rgba(95, 179, 95, 0.1);
+            border: 1px solid rgba(95, 179, 95, 0.3);
+            color: var(--color-success);
+        }
+        .alert-error {
+            background: rgba(231, 76, 60, 0.1);
+            border: 1px solid rgba(231, 76, 60, 0.3);
+            color: var(--color-error);
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(122, 164, 86, 0.2);
+            border-top-color: var(--primary-green);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .hidden { display: none !important; }
+        .mt-2 { margin-top: 2rem; }
+        .text-center { text-align: center; }
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.75rem; }
+            .container { padding: 2rem 1rem; }
+            .card { padding: 1.5rem; }
+            .stats-grid { grid-template-columns: 1fr; }
+            table { font-size: 0.85rem; }
+            th, td { padding: 0.4rem 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⏱️ Route Duration Calculator</h1>
+            <p>Calculate Total Work Hours Per Route</p>
+        </div>
+        <div class="card">
+            <div class="card-title">Upload Excel File</div>
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">📊</div>
+                <div class="upload-text">Click to upload or drag & drop your Excel file</div>
+                <div class="upload-subtext">Works with any .xlsx file with Date and Time columns</div>
+                <input type="file" id="fileInput" accept=".xlsx" />
+            </div>
+        </div>
+        <div id="resultsSection" class="hidden">
+            <div class="card">
+                <div class="card-title">Processing Summary</div>
+                <div id="alerts"></div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalEntries">0</div>
+                        <div class="stat-label">Total Entries</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="uniqueRoutes">0</div>
+                        <div class="stat-label">Unique Routes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalHours">0</div>
+                        <div class="stat-label">Total Hours</div>
+                    </div>
+                </div>
+                <div class="text-center mt-2">
+                    <button class="btn btn-primary" id="downloadBtn">
+                        <span>⬇️ Download Route Totals Excel</span>
+                    </button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Total Hours by Route (Sorted A→Z)</div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Route Name</th>
+                                <th>Visit (Service)</th>
+                                <th>Total Duration in Hrs</th>
+                            </tr>
+                        </thead>
+                        <tbody id="routeTotalsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let processedData = null;
+        let originalFileName = '';
+        
+        function excelSerialToDate(serial) {
+            if (typeof serial !== 'number' || serial < 1) return null;
+            const msPerDay = 24 * 60 * 60 * 1000;
+            const excelEpoch = new Date(1899, 11, 30);
+            const result = new Date(excelEpoch.getTime() + serial * msPerDay);
+            return result;
+        }
+        
+        function parseDateString(str) {
+            str = str.trim();
+            let match = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+            if (match) return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
+            match = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+            if (match) {
+                const first = parseInt(match[1]), second = parseInt(match[2]), year = parseInt(match[3]);
+                if (first > 12) return new Date(year, second - 1, first);
+                if (second > 12) return new Date(year, first - 1, second);
+                return new Date(year, first - 1, second);
+            }
+            match = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2})$/);
+            if (match) {
+                const first = parseInt(match[1]), second = parseInt(match[2]);
+                let year = parseInt(match[3]);
+                year = year < 50 ? 2000 + year : 1900 + year;
+                if (first > 12) return new Date(year, second - 1, first);
+                return new Date(year, first - 1, second);
+            }
+            const parsed = new Date(str);
+            return isNaN(parsed.getTime()) ? null : parsed;
+        }
+        
+        function parseDate(value) {
+            if (!value) return null;
+            if (typeof value === 'number' && value >= 1 && value < 100000) return excelSerialToDate(value);
+            if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+            if (typeof value === 'string') return parseDateString(value);
+            return null;
+        }
+        
+        function parseTimeValue(value) {
+            if (!value) return { hours: 0, minutes: 0, seconds: 0 };
+            if (typeof value === 'number') {
+                const totalSeconds = Math.round(value * 24 * 60 * 60);
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = totalSeconds % 60;
+                return { hours, minutes, seconds };
+            }
+            const str = String(value).trim();
+            const match = str.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
+            if (match) {
+                return {
+                    hours: parseInt(match[1], 10),
+                    minutes: parseInt(match[2], 10),
+                    seconds: match[3] ? parseInt(match[3], 10) : 0
+                };
+            }
+            return { hours: 0, minutes: 0, seconds: 0 };
+        }
+        
+        function combineDateAndTime(dateValue, timeValue) {
+            const date = parseDate(dateValue);
+            if (!date) return null;
+            const time = parseTimeValue(timeValue);
+            const combined = new Date(date);
+            combined.setHours(time.hours, time.minutes, time.seconds, 0);
+            return combined;
+        }
+        
+        function formatDate(date) {
+            if (!date || isNaN(date.getTime())) return '';
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        
+        function formatNumber(num, decimals) {
+            if (num === null || num === undefined || isNaN(num)) return '';
+            return Number(num.toFixed(decimals));
+        }
+        
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        uploadZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) handleFile(file); });
+        uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.xlsx')) handleFile(file);
+            else showAlert('Please upload a valid .xlsx file', 'error');
+        });
+        
+        function handleFile(file) {
+            originalFileName = file.name;
+            showAlert('Processing file... <span class="spinner"></span>', 'success');
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: false, raw: true });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true, defval: '' });
+                    if (jsonData.length === 0) { showAlert('The Excel file appears to be empty', 'error'); return; }
+                    processData(jsonData);
+                } catch (error) {
+                    console.error('Error reading file:', error);
+                    showAlert('Error reading file: ' + error.message, 'error');
+                }
+            };
+            reader.onerror = () => showAlert('Error reading file', 'error');
+            reader.readAsArrayBuffer(file);
+        }
+        
+        function processData(data) {
+            const headers = data[0];
+            const rows = data.slice(1);
+            const dateIndex = headers.indexOf('Date');
+            const timeIndex = headers.indexOf('Time');
+            const routeNameIndex = headers.indexOf('Route Name');
+            const visitIndex = headers.indexOf('Visit (Service)');
+            
+            if (dateIndex === -1 || timeIndex === -1) {
+                showAlert('Error: Date and Time columns are required', 'error');
+                return;
+            }
+            
+            const entries = [];
+            const uniqueRoutes = new Set();
+            
+            rows.forEach((row) => {
+                if (!row || row.length === 0) return;
+                const dateValue = dateIndex !== -1 ? row[dateIndex] : '';
+                const timeValue = timeIndex !== -1 ? row[timeIndex] : '';
+                const routeName = routeNameIndex !== -1 ? row[routeNameIndex] : '';
+                const visit = visitIndex !== -1 ? row[visitIndex] : '';
+                const datetime = combineDateAndTime(dateValue, timeValue);
+                if (datetime && routeName) {
+                    entries.push({
+                        datetime: datetime,
+                        date: formatDate(datetime),
+                        routeName: routeName,
+                        visit: visit
+                    });
+                    uniqueRoutes.add(routeName);
+                }
+            });
+            
+            entries.sort((a, b) => a.datetime - b.datetime);
+            
+            // GROUP BY ROUTE NAME ONLY (combining all users)
+            const routeGroups = {};
+            
+            entries.forEach(entry => {
+                const groupKey = entry.routeName; // ONLY ROUTE NAME
+                
+                if (!routeGroups[groupKey]) {
+                    routeGroups[groupKey] = {
+                        routeName: entry.routeName,
+                        visit: entry.visit,
+                        firstDate: entry.date,
+                        firstTimestamp: entry.datetime,
+                        lastTimestamp: entry.datetime,
+                        totalHours: 0
+                    };
+                } else {
+                    // Update to latest timestamp
+                    if (entry.datetime > routeGroups[groupKey].lastTimestamp) {
+                        routeGroups[groupKey].lastTimestamp = entry.datetime;
+                    }
+                    // Update to earliest timestamp
+                    if (entry.datetime < routeGroups[groupKey].firstTimestamp) {
+                        routeGroups[groupKey].firstTimestamp = entry.datetime;
+                        routeGroups[groupKey].firstDate = entry.date;
+                    }
+                }
+            });
+            
+            // Calculate total hours for each route
+            Object.values(routeGroups).forEach(group => {
+                const durationMs = group.lastTimestamp - group.firstTimestamp;
+                group.totalHours = durationMs / (1000 * 60 * 60);
+            });
+            
+            // Sort by Route Name A→Z
+            const routeTotalsArray = Object.values(routeGroups).sort((a, b) => {
+                const routeA = (a.routeName || '').toLowerCase();
+                const routeB = (b.routeName || '').toLowerCase();
+                if (routeA < routeB) return -1;
+                if (routeA > routeB) return 1;
+                return 0;
+            });
+            
+            const grandTotal = routeTotalsArray.reduce((sum, g) => sum + g.totalHours, 0);
+            processedData = {
+                routeTotals: routeTotalsArray,
+                stats: {
+                    totalEntries: entries.length,
+                    uniqueRoutes: uniqueRoutes.size,
+                    totalHours: grandTotal
+                }
+            };
+            displayResults();
+        }
+        
+        function displayResults() {
+            const { routeTotals, stats } = processedData;
+            document.getElementById('resultsSection').classList.remove('hidden');
+            document.getElementById('totalEntries').textContent = stats.totalEntries.toLocaleString();
+            document.getElementById('uniqueRoutes').textContent = stats.uniqueRoutes.toLocaleString();
+            document.getElementById('totalHours').textContent = formatNumber(stats.totalHours, 2);
+            showAlert(`✓ Success! Calculated durations for ${stats.uniqueRoutes} routes from ${stats.totalEntries.toLocaleString()} timestamps.`, 'success');
+            displayRouteTotalsTable(routeTotals);
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function displayRouteTotalsTable(routeTotals) {
+            const tbody = document.getElementById('routeTotalsBody');
+            tbody.innerHTML = '';
+            routeTotals.forEach(route => {
+                const tr = document.createElement('tr');
+                
+                const tdDate = document.createElement('td');
+                tdDate.textContent = route.firstDate;
+                tr.appendChild(tdDate);
+                
+                const tdRoute = document.createElement('td');
+                tdRoute.textContent = route.routeName;
+                tdRoute.classList.add('route-name');
+                tr.appendChild(tdRoute);
+                
+                const tdVisit = document.createElement('td');
+                tdVisit.textContent = route.visit;
+                tr.appendChild(tdVisit);
+                
+                const tdDuration = document.createElement('td');
+                tdDuration.textContent = formatNumber(route.totalHours, 2);
+                tdDuration.classList.add('total-duration');
+                tr.appendChild(tdDuration);
+                
+                tbody.appendChild(tr);
+            });
+        }
+        
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            if (!processedData) { showAlert('No data to download', 'error'); return; }
+            const { routeTotals } = processedData;
+            const headers = ['Date', 'Route Name', 'Visit (Service)', 'Total Duration in Hrs'];
+            const excelData = [headers];
+            routeTotals.forEach(route => {
+                excelData.push([route.firstDate, route.routeName, route.visit, formatNumber(route.totalHours, 2)]);
+            });
+            const ws = XLSX.utils.aoa_to_sheet(excelData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Route Totals');
+            const newFileName = originalFileName.replace('.xlsx', '_route_totals.xlsx');
+            XLSX.writeFile(wb, newFileName);
+            showAlert('✓ File downloaded successfully!', 'success');
+        });
+        
+        function showAlert(message, type = 'success') {
+            const alertsContainer = document.getElementById('alerts');
+            alertsContainer.innerHTML = '';
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : '⚠';
+            alert.innerHTML = `<span style="font-weight: bold;">${icon}</span> ${message}`;
+            alertsContainer.appendChild(alert);
+        }
+    </script>
+</body>
+</html>
